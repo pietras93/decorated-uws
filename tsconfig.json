@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "target": "es2018",
+    "resolveJsonModule": true,
+    "moduleResolution": "node",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "baseUrl": "./src",
+    "module": "CommonJS",
+    "lib": ["es2020", "DOM"]
+  },
+  "types": ["reflect-metadata"],
+  "include": ["src"],
+  "exclude": ["node_modules", "**/*.spec.ts"]
+}
