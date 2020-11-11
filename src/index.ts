@@ -13,7 +13,9 @@ import { AppOptions } from "interfaces/options";
 export class App {
   private readonly app: uws.TemplatedApp = null;
   private readonly routes: any[] = [];
-  private readonly bodyParser: (data: Buffer) => any = DataUtils.JSONParser;
+  private readonly middlewares: any[] = [];
+  private readonly bodyParser: (data: Buffer) => any = DataUtils.bodyParser;
+  private readonly queryParser: (querystring: string) => any = DataUtils.queryParser;
 
   constructor(options: AppOptions = { controllers: [] }) {
     if (options.key && options.cert) {
@@ -30,8 +32,16 @@ export class App {
       options.controllers = [];
     }
 
-    if (options.defaultBodyParser) {
-      this.bodyParser = options.defaultBodyParser;
+    if (options.bodyParser) {
+      this.bodyParser = options.bodyParser;
+    }
+
+    if (options.queryParser) {
+      this.queryParser = options.queryParser;
+    }
+
+    if (options.middlewares) {
+      this.middlewares = options.middlewares;
     }
 
     this.registerControllers(options.controllers);
@@ -86,12 +96,11 @@ export class App {
           ? `${prefix}${route.path}`
           : `${prefix}/${route.path}`;
         this.routes.push({
-          path: fullPath,
+          path: fullPath.split('//').join('/'),
           method: route.method,
           params: params[route.methodName],
-          /* middlewares: middleware.all.concat(
-            middleware[route.methodName] || []
-          ),*/
+          before: route.before,
+          after: route.after,
           handler: async (...args) => instance[route.methodName](...args),
         });
       }
@@ -104,6 +113,8 @@ export class App {
     method: Methods;
     handler: any;
     middlewares: any[];
+    before: any[];
+    after: any[];
     bodyParser?: (data: Buffer) => any;
   }) {
     return async (res: uws.HttpResponse, req: uws.HttpRequest) => {
@@ -112,7 +123,7 @@ export class App {
       res.onAborted(() => responseUtils.onAbortedOrFinishedResponse);
 
       // Handle request object
-      const request = new RequestUtils(req, route.path);
+      const request = new RequestUtils(req, route.path, this.queryParser);
 
       // Handle incoming data
       const data: Buffer = await DataUtils.readData(res);
@@ -122,7 +133,6 @@ export class App {
           request.setData(data, route.bodyParser || this.bodyParser);
         } catch (err) {
           responseUtils.response.status(400).send(err.message);
-          responseUtils.routeResponse.emit("finish");
           return;
         }
       }
@@ -131,33 +141,55 @@ export class App {
         ? ParamsParser.parse(route.params, request, responseUtils.routeResponse)
         : [];
 
-      // Run middlewares
-      /*const middlewares: any[] = this.middlewares.concat(route.middlewares);
-      let error = false;
-
-      for (const middleware of middlewares) {
-        await middleware(request, responseUtils.routeResponse, err => {
-          error = err;
-        });
-        if (error) {
-          console.log("fak");
+      // Run general middlewares
+      for (const middleware of this.middlewares) {
+        try {
+          await middleware(request, responseUtils.routeResponse);
+        } catch (err) {
+          console.log(err);
           break;
         }
-      }*/
+      }
+
+      // Run before middlewares
+      for (const middleware of route.before) {
+        try {
+          await middleware(request, responseUtils.routeResponse);
+        } catch (err) {
+          console.log(err);
+          break;
+        }
+      }
 
       // Handle route
-      const resp = await route.handler(...args);
+      let resp;
+      let status = 200;
+      try {
+        resp = await route.handler(...args);
+      } catch (err) {
+        console.log(err);
+        status = err.status || 500;
+        resp = { error: err };
+      }
 
       // If route was finished in other way fe. by accessing @Res
       // do not try to send anyhting
       if (responseUtils.isFinished) {
-        responseUtils.routeResponse.emit("finish");
         return;
       }
 
       // Send data as JSON
+      responseUtils.response.status(status.toString());
       responseUtils.sendJson(resp);
-      responseUtils.routeResponse.emit("finish");
+
+      // Run after middlewares
+      for (const middleware of route.after) {
+        try {
+          await middleware(request, resp, status);
+        } catch (err) {
+          console.log(err);
+        }
+      }
 
       return;
     };

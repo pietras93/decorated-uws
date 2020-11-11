@@ -1,9 +1,11 @@
 export interface AppOptions {
   controllers: Function[];
+  middlewares?: any[];
   cert?: string;
   key?: string;
   passphrase?: string;
-  defaultBodyParser?: (data: Buffer) => any;
+  bodyParser?: (data: Buffer) => any;
+  queryParser?: (queryString: string) => any;
 }
 
 export interface RouteOptions {

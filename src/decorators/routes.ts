@@ -17,17 +17,28 @@ const RouteDecorator = (
       target.constructor
     ) as RouteMeta[];
 
-    const route: RouteMeta = {
-      path,
-      method,
-      methodName: propertyKey,
-    };
+    let routeData = routes.find(route => route.methodName === propertyKey);
+    if (routeData) {
+      routeData.path = path;
+      routeData.method = method;
+      if (options?.bodyParser) {
+        routeData.bodyParser = options.bodyParser;
+      }
+    } else {
+      const route: RouteMeta = {
+        path,
+        method,
+        methodName: propertyKey,
+        before: [],
+        after: [],
+      };
+      
+      if (options?.bodyParser) {
+        route.bodyParser = options.bodyParser;
+      }
 
-    if (options?.bodyParser) {
-      route.bodyParser = options.bodyParser;
+      routes.push(route);
     }
-
-    routes.push(route);
 
     Reflect.defineMetadata("routes", routes, target.constructor);
   };

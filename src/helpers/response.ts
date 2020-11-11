@@ -2,7 +2,6 @@ import * as uws from "uWebSockets.js";
 import { Readable, Writable } from "stream";
 
 import { createReadStream, statSync } from "fs";
-import { EventEmitter } from "events";
 
 class ResponseWriteStream extends Writable {
   private readonly res: uws.HttpResponse;
@@ -52,7 +51,7 @@ class ResponseWriteStream extends Writable {
   }
 }
 
-export class Response extends EventEmitter {
+export class Response {
   redirect: () => void;
   status: (number) => Response;
   set: () => Response;
@@ -87,7 +86,6 @@ export class ResponseUtils {
     /* Mark this response already accounted for */
     this.resId = -1;
     this.isFinished = true;
-    this.response.emit("finish");
   }
 
   private status(status): Response {

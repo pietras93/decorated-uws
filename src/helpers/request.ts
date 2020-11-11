@@ -12,7 +12,7 @@ export class RequestUtils {
   public params: { [key: string]: string } = {};
   public body: any;
 
-  constructor(req: uws.HttpRequest, path: string) {
+  constructor(req: uws.HttpRequest, path: string, queryParser: (queryString: string) => any) {
     this.req = req;
     this.path = path;
     this.method = this.req.getMethod() as Methods;
@@ -25,11 +25,7 @@ export class RequestUtils {
 
     // Get query
     const queryString = this.req.getQuery();
-    const queryElements = queryString.split("&");
-    for (const element of queryElements) {
-      const [key, value] = element.split("=");
-      this.query[key] = value;
-    }
+    this.query = queryParser(queryString);
 
     // Get params
     const pathElements = this.path.split("/");
